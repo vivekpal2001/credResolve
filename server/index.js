@@ -14,18 +14,18 @@ app.use(cors())
 app.use(express.json())
 
 // Routes
-app.use("/api/auth", authRoutes)
-app.use("/api/groups", groupRoutes)
-app.use("/api/expenses", expenseRoutes)
-app.use("/api/balances", balanceRoutes)
-app.use("/api/settlements", settlementRoutes)
+app.use("/auth", authRoutes)
+app.use("/groups", groupRoutes)
+app.use("/expenses", expenseRoutes)
+app.use("/balances", balanceRoutes)
+app.use("/settlements", settlementRoutes)
 
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok" })
 })
 
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 3000
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)

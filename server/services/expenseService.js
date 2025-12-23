@@ -2,6 +2,92 @@ const { PrismaClient } = require("@prisma/client")
 
 const prisma = new PrismaClient()
 
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Calculate exact split amounts based on split type
+ * Handles EQUAL, EXACT, and PERCENTAGE split types
+ * @param {number} totalAmount - Total expense amount
+ * @param {string} splitType - Type of split (EQUAL, EXACT, PERCENTAGE)
+ * @param {Array} splits - Array of split objects
+ * @param {Array} groupMembers - Array of group member objects
+ * @returns {Array} Array of exact splits with userId and amount
+ */
+const calculateExactSplits = (totalAmount, splitType, splits, groupMembers) => {
+  switch (splitType) {
+    case "EQUAL": {
+      // Equal split among all specified users
+      const userIds = splits.map((s) => s.userId)
+      const amountPerPerson = totalAmount / userIds.length
+      const roundedAmount = Number.parseFloat(amountPerPerson.toFixed(2))
+
+      const result = userIds.map((userId) => ({
+        userId,
+        amount: roundedAmount,
+      }))
+
+      // Adjust last split to account for rounding errors
+      const totalSplits = roundedAmount * userIds.length
+      const difference = totalAmount - totalSplits
+      if (Math.abs(difference) > 0.001) {
+        result[result.length - 1].amount = Number.parseFloat((roundedAmount + difference).toFixed(2))
+      }
+
+      return result
+    }
+
+    case "EXACT": {
+      // Exact amounts specified for each user
+      return splits.map((split) => ({
+        userId: split.userId,
+        amount: Number.parseFloat(split.amount),
+      }))
+    }
+
+    case "PERCENTAGE": {
+      // Percentage-based split
+      const totalPercentage = splits.reduce((sum, s) => sum + s.percentage, 0)
+
+      if (Math.abs(totalPercentage - 100) > 0.01) {
+        throw new Error("Invalid split: Percentages must sum to 100")
+      }
+
+      const result = splits.map((split) => ({
+        userId: split.userId,
+        amount: Number.parseFloat(((totalAmount * split.percentage) / 100).toFixed(2)),
+      }))
+
+      // Adjust last split to account for rounding errors
+      const totalSplits = result.reduce((sum, s) => sum + s.amount, 0)
+      const difference = totalAmount - totalSplits
+      if (Math.abs(difference) > 0.001) {
+        result[result.length - 1].amount = Number.parseFloat((result[result.length - 1].amount + difference).toFixed(2))
+      }
+
+      return result
+    }
+
+    default:
+      throw new Error("Invalid split type")
+  }
+}
+
+// ============================================================================
+// PUBLIC API FUNCTIONS
+// ============================================================================
+
+/**
+ * Create a new expense with splits
+ * @param {string} paidById - ID of user who paid
+ * @param {string} description - Expense description
+ * @param {number} amount - Total expense amount
+ * @param {string} groupId - Group ID
+ * @param {string} splitType - Type of split (EQUAL, EXACT, PERCENTAGE)
+ * @param {Array} splits - Array of split details
+ * @returns {Object} Created expense with splits
+ */
 const createExpense = async (paidById, description, amount, groupId, splitType, splits) => {
   // Verify user is a member of the group
   const isMember = await prisma.groupMember.findFirst({
@@ -85,65 +171,12 @@ const createExpense = async (paidById, description, amount, groupId, splitType, 
   return expense
 }
 
-const calculateExactSplits = (totalAmount, splitType, splits, groupMembers) => {
-  switch (splitType) {
-    case "EQUAL": {
-      // Equal split among all specified users
-      const userIds = splits.map((s) => s.userId)
-      const amountPerPerson = totalAmount / userIds.length
-      const roundedAmount = Number.parseFloat(amountPerPerson.toFixed(2))
-
-      const result = userIds.map((userId) => ({
-        userId,
-        amount: roundedAmount,
-      }))
-
-      // Adjust last split to account for rounding errors
-      const totalSplits = roundedAmount * userIds.length
-      const difference = totalAmount - totalSplits
-      if (Math.abs(difference) > 0.001) {
-        result[result.length - 1].amount = Number.parseFloat((roundedAmount + difference).toFixed(2))
-      }
-
-      return result
-    }
-
-    case "EXACT": {
-      // Exact amounts specified for each user
-      return splits.map((split) => ({
-        userId: split.userId,
-        amount: Number.parseFloat(split.amount),
-      }))
-    }
-
-    case "PERCENTAGE": {
-      // Percentage-based split
-      const totalPercentage = splits.reduce((sum, s) => sum + s.percentage, 0)
-
-      if (Math.abs(totalPercentage - 100) > 0.01) {
-        throw new Error("Invalid split: Percentages must sum to 100")
-      }
-
-      const result = splits.map((split) => ({
-        userId: split.userId,
-        amount: Number.parseFloat(((totalAmount * split.percentage) / 100).toFixed(2)),
-      }))
-
-      // Adjust last split to account for rounding errors
-      const totalSplits = result.reduce((sum, s) => sum + s.amount, 0)
-      const difference = totalAmount - totalSplits
-      if (Math.abs(difference) > 0.001) {
-        result[result.length - 1].amount = Number.parseFloat((result[result.length - 1].amount + difference).toFixed(2))
-      }
-
-      return result
-    }
-
-    default:
-      throw new Error("Invalid split type")
-  }
-}
-
+/**
+ * Get all expenses for a group
+ * @param {string} userId - ID of requesting user
+ * @param {string} groupId - Group ID
+ * @returns {Array} Array of expenses with splits and payer details
+ */
 const getGroupExpenses = async (userId, groupId) => {
   // Verify user is a member of the group
   const isMember = await prisma.groupMember.findFirst({
@@ -187,6 +220,13 @@ const getGroupExpenses = async (userId, groupId) => {
   return expenses
 }
 
+/**
+ * Delete an expense
+ * Only the user who created the expense can delete it
+ * @param {string} userId - ID of requesting user
+ * @param {string} expenseId - Expense ID to delete
+ * @returns {Object} Success message and group ID
+ */
 const deleteExpense = async (userId, expenseId) => {
   // Get expense with group info
   const expense = await prisma.expense.findUnique({

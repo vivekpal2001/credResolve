@@ -1,7 +1,16 @@
 import { createContext, useContext, useEffect, useState } from "react"
 
+// ============================================================================
+// THEME CONTEXT
+// Manages dark/light theme state across the application
+// ============================================================================
+
 const ThemeContext = createContext()
 
+/**
+ * Hook to access theme context
+ * @returns {Object} { theme, toggleTheme }
+ */
 export const useTheme = () => {
   const context = useContext(ThemeContext)
   if (!context) {
@@ -10,6 +19,12 @@ export const useTheme = () => {
   return context
 }
 
+/**
+ * Theme Provider Component
+ * Wraps the app and provides theme context to all children
+ * @param {Object} props - Component props
+ * @param {ReactNode} props.children - Child components
+ */
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("theme")

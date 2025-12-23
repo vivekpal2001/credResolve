@@ -6,6 +6,10 @@ import api from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 import LoadingSpinner from "./LoadingSpinner"
 
+// ============================================================================
+// SETTLE PAYMENT MODAL COMPONENT
+// ============================================================================
+
 export default function SettleModal({ isOpen, onClose, groupId, fromUser, toUser, amount }) {
   const { user } = useAuth()
   const [method, setMethod] = useState("CASH")
@@ -58,7 +62,7 @@ export default function SettleModal({ isOpen, onClose, groupId, fromUser, toUser
               <span className="font-semibold text-gray-900 dark:text-white">{fromUser.name}</span> pays{" "}
               <span className="font-semibold text-gray-900 dark:text-white">{toUser.name}</span>
             </div>
-            <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">${amount.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">₹{amount.toFixed(2)}</div>
           </div>
         </div>
 

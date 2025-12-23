@@ -1,0 +1,54 @@
+name: CD - Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/app
+          
+          # Pull latest code
+          git pull origin main
+          
+          # Create .env file
+          cat > .env << EOF
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          NODE_ENV=production
+          EOF
+          
+          # Stop and remove old containers
+          docker-compose down
+          
+          # Remove old images
+          docker system prune -af
+          
+          # Build and start new containers
+          docker-compose up -d --build
+          
+          # Run database migrations
+          docker exec credresolve-backend npx prisma migrate deploy
+          
+          # Show status
+          docker ps
+          
+    - name: Health Check
+      run: |
+        sleep 15
+        curl -f http://${{ secrets.EC2_HOST }}:3000 || echo "Backend check failed"
+        curl -f http://${{ secrets.EC2_HOST }} || echo "Frontend check failed"

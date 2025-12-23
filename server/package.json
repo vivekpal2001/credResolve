@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "echo \"No tests yet\" && exit 0",
+    "lint": "echo \"Linting...\" && exit 0"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",

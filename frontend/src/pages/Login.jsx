@@ -5,7 +5,12 @@ import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import LoadingSpinner from "../components/LoadingSpinner"
 
+// ============================================================================
+// LOGIN PAGE
+// ============================================================================
+
 export default function Login() {
+  // State management
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -14,6 +19,7 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  // Form submission handler
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
@@ -34,7 +40,7 @@ export default function Login() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center animate-fade-in">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl mb-4 shadow-lg shadow-primary-500/30">
-            <span className="text-white font-bold text-3xl">$</span>
+            <span className="text-white font-bold text-3xl">₹</span>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome back</h2>
           <p className="text-gray-600 dark:text-gray-400">Sign in to manage your expenses</p>

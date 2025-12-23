@@ -5,7 +5,12 @@ import { useNavigate, Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import LoadingSpinner from "../components/LoadingSpinner"
 
+// ============================================================================
+// REGISTER PAGE
+// ============================================================================
+
 export default function Register() {
+  // State management
   const [email, setEmail] = useState("")
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
@@ -15,6 +20,7 @@ export default function Register() {
   const { register } = useAuth()
   const navigate = useNavigate()
 
+  // Form submission handler
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
@@ -35,7 +41,7 @@ export default function Register() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center animate-fade-in">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl mb-4 shadow-lg shadow-primary-500/30">
-            <span className="text-white font-bold text-3xl">$</span>
+            <span className="text-white font-bold text-3xl">₹</span>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Create your account</h2>
           <p className="text-gray-600 dark:text-gray-400">Start splitting expenses with friends</p>

@@ -2,7 +2,17 @@ const { PrismaClient } = require("@prisma/client")
 
 const prisma = new PrismaClient()
 
-// Helper function to calculate net balance for each user
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Calculate net balance for each user based on expenses and settlements
+ * @param {Array} expenses - List of expense records
+ * @param {Array} settlements - List of completed settlements
+ * @param {Array} members - List of group members
+ * @returns {Map} Map of userId to net balance (positive = owed to them, negative = they owe)
+ */
 const calculateNetBalances = (expenses, settlements, members) => {
   const balances = new Map()
 
@@ -35,7 +45,13 @@ const calculateNetBalances = (expenses, settlements, members) => {
   return balances
 }
 
-// Simple Net Balance Method for debt simplification
+/**
+ * Simplify debts using the Simple Net Balance Method (Greedy Algorithm)
+ * Reduces the number of transactions by matching largest creditors with largest debtors
+ * @param {Map} netBalances - Map of userId to net balance
+ * @param {Map} userMap - Map of userId to user object
+ * @returns {Array} Array of simplified transactions {from, to, amount}
+ */
 const simplifyDebts = (netBalances, userMap) => {
   // Separate creditors (positive balance) and debtors (negative balance)
   const creditors = []
@@ -83,6 +99,15 @@ const simplifyDebts = (netBalances, userMap) => {
   return transactions
 }
 
+// ============================================================================
+// PUBLIC API FUNCTIONS
+// ============================================================================
+
+/**
+ * Get balance summary for a user across all their groups
+ * @param {string} userId - The user's ID
+ * @returns {Object} Balance summary with youOwe, youAreOwed, totals, and netBalance
+ */
 const getUserBalances = async (userId) => {
   // Get all groups the user is part of
   const groups = await prisma.group.findMany({
@@ -170,6 +195,12 @@ const getUserBalances = async (userId) => {
   }
 }
 
+/**
+ * Get balance details for a specific group
+ * @param {string} userId - The requesting user's ID
+ * @param {string} groupId - The group ID
+ * @returns {Object} Group balance details with youOwe, youAreOwed, and allDebts
+ */
 const getGroupBalances = async (userId, groupId) => {
   // Verify user is a member of the group
   const isMember = await prisma.groupMember.findFirst({

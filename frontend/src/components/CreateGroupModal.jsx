@@ -5,6 +5,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "../lib/api"
 import LoadingSpinner from "./LoadingSpinner"
 
+// ============================================================================
+// CREATE GROUP MODAL COMPONENT
+// ============================================================================
+
 export default function CreateGroupModal({ isOpen, onClose }) {
   const [name, setName] = useState("")
   const [error, setError] = useState("")

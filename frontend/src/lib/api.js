@@ -1,7 +1,8 @@
 import axios from "axios"
 
+// Always use /api - Vite proxy handles it in dev, Nginx in production
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: '/api',
 })
 
 api.interceptors.request.use((config) => {

@@ -5,6 +5,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import api from "../lib/api"
 import LoadingSpinner from "./LoadingSpinner"
 
+// ============================================================================
+// ADD MEMBER MODAL COMPONENT
+// ============================================================================
+
 export default function AddMemberModal({ isOpen, onClose, groupId }) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")

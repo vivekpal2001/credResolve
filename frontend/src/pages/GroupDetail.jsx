@@ -12,19 +12,27 @@ import Pagination from "../components/Pagination"
 import api from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 
+// ============================================================================
+// GROUP DETAIL PAGE
+// ============================================================================
+
 export default function GroupDetail() {
+  // Hooks and routing
   const { groupId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+
+  // State management
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false)
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false)
   const [settleModalData, setSettleModalData] = useState(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [expensePage, setExpensePage] = useState(1)
   const [settlementPage, setSettlementPage] = useState(1)
-  const itemsPerPage = 10
+  const itemsPerPage = 3
 
+  // Data fetching
   const { data: group, isLoading: groupLoading } = useQuery({
     queryKey: ["group", groupId],
     queryFn: async () => {
@@ -49,6 +57,7 @@ export default function GroupDetail() {
     },
   })
 
+  // Mutations
   const deleteGroupMutation = useMutation({
     mutationFn: async () => {
       await api.delete(`/groups/${groupId}`)
@@ -88,6 +97,7 @@ export default function GroupDetail() {
     },
   })
 
+  // Event handlers
   const handleDeleteGroup = () => {
     if (window.confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
       deleteGroupMutation.mutate()
@@ -110,33 +120,7 @@ export default function GroupDetail() {
     }
   }
 
-  const isLoading = groupLoading || balancesLoading || settlementsLoading
-
-  if (isLoading) {
-    return (
-      <>
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
-          <LoadingSpinner size="large" />
-        </div>
-      </>
-    )
-  }
-
-  if (!group) {
-    return (
-      <>
-        <Navbar />
-        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
-          <div className="text-lg text-gray-600 dark:text-gray-400 mb-4">Group not found</div>
-          <button onClick={() => navigate("/dashboard")} className="btn btn-primary">
-            Back to Dashboard
-          </button>
-        </div>
-      </>
-    )
-  }
-
+  // Computed values - MUST be before conditional returns to follow Rules of Hooks
   // Calculate user's net balance (what they're owed - what they owe)
   const totalOwed = balances?.youAreOwed?.reduce((sum, debt) => sum + debt.amount, 0) || 0
   const totalOwing = balances?.youOwe?.reduce((sum, debt) => sum + debt.amount, 0) || 0
@@ -170,6 +154,34 @@ export default function GroupDetail() {
     if (!settlements) return 0
     return Math.ceil(settlements.length / itemsPerPage)
   }, [settlements])
+
+  // Conditional returns - MUST be after all hooks
+  const isLoading = groupLoading || balancesLoading || settlementsLoading
+
+  if (isLoading) {
+    return (
+      <>
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+          <LoadingSpinner size="large" />
+        </div>
+      </>
+    )
+  }
+
+  if (!group) {
+    return (
+      <>
+        <Navbar />
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)]">
+          <div className="text-lg text-gray-600 dark:text-gray-400 mb-4">Group not found</div>
+          <button onClick={() => navigate("/dashboard")} className="btn btn-primary">
+            Back to Dashboard
+          </button>
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
@@ -224,7 +236,7 @@ export default function GroupDetail() {
                         </div>
                         <div className="flex items-start gap-3">
                           <div className="text-right">
-                            <div className="text-lg font-bold text-gray-900 dark:text-white">${expense.amount.toFixed(2)}</div>
+                            <div className="text-lg font-bold text-gray-900 dark:text-white">₹{expense.amount.toFixed(2)}</div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
                               {new Date(expense.createdAt).toLocaleDateString()}
                             </div>
@@ -246,7 +258,7 @@ export default function GroupDetail() {
                         <div className="flex flex-wrap gap-2">
                         {expense.splits.map((split) => (
                           <div key={split.userId} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
-                            {split.user.name}: ${split.amount.toFixed(2)}
+                            {split.user.name}: ₹{split.amount.toFixed(2)}
                           </div>
                         ))}
                       </div>
@@ -299,7 +311,7 @@ export default function GroupDetail() {
                     userBalance > 0 ? "text-green-700 dark:text-green-400" : userBalance < 0 ? "text-red-700 dark:text-red-400" : "text-gray-700 dark:text-gray-300"
                   }`}
                 >
-                  {userBalance > 0 && "+"}${Math.abs(userBalance).toFixed(2)}
+                  {userBalance > 0 && "+"}₹{Math.abs(userBalance).toFixed(2)}
                 </div>
               </div>
             </div>

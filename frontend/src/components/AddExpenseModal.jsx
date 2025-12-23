@@ -6,7 +6,12 @@ import api from "../lib/api"
 import { useAuth } from "../context/AuthContext"
 import LoadingSpinner from "./LoadingSpinner"
 
+// ============================================================================
+// ADD EXPENSE MODAL COMPONENT
+// ============================================================================
+
 export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
+  // State management
   const { user } = useAuth()
   const [description, setDescription] = useState("")
   const [amount, setAmount] = useState("")
@@ -17,6 +22,7 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
   const [error, setError] = useState("")
   const queryClient = useQueryClient()
 
+  // Mutation for creating expense
   const createExpenseMutation = useMutation({
     mutationFn: async (expenseData) => {
       const { data } = await api.post("/expenses", expenseData)
@@ -34,6 +40,7 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
     },
   })
 
+  // Helper functions
   const resetForm = () => {
     setDescription("")
     setAmount("")
@@ -44,10 +51,12 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
     setError("")
   }
 
+  // Form submission handler
   const handleSubmit = (e) => {
     e.preventDefault()
     setError("")
 
+    // Validation
     if (!description.trim() || !amount || selectedMembers.length === 0) {
       setError("Please fill all required fields and select at least one member")
       return
@@ -127,7 +136,7 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount ($)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (₹)</label>
               <input
                 type="number"
                 step="0.01"

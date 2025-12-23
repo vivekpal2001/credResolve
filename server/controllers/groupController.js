@@ -2,8 +2,10 @@ const groupService = require("../services/groupService")
 
 const getUserGroups = async (req, res) => {
   try {
-    const groups = await groupService.getUserGroups(req.userId)
-    res.json(groups)
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 10
+    const result = await groupService.getUserGroups(req.userId, page, limit)
+    res.json(result)
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch groups" })
   }
@@ -30,7 +32,19 @@ const createGroup = async (req, res) => {
 const getGroupDetails = async (req, res) => {
   try {
     const { groupId } = req.params
-    const group = await groupService.getGroupDetails(req.userId, groupId)
+    const expensePage = parseInt(req.query.expensePage)
+    const expenseLimit = parseInt(req.query.expenseLimit)
+    const settlementPage = parseInt(req.query.settlementPage)
+    const settlementLimit = parseInt(req.query.settlementLimit)
+    
+    const group = await groupService.getGroupDetails(
+      req.userId, 
+      groupId, 
+      expensePage, 
+      expenseLimit, 
+      settlementPage, 
+      settlementLimit
+    )
     res.json(group)
   } catch (error) {
     if (error.message === "Group not found or access denied") {

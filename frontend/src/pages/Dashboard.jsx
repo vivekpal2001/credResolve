@@ -9,19 +9,28 @@ import LoadingSpinner from "../components/LoadingSpinner"
 import Pagination from "../components/Pagination"
 import api from "../lib/api"
 
+// ============================================================================
+// DASHBOARD PAGE
+// ============================================================================
+
 export default function Dashboard() {
+  // State management
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
   const navigate = useNavigate()
 
-  const { data: groups, isLoading: groupsLoading } = useQuery({
+  // Data fetching
+  const { data: groupsResponse, isLoading: groupsLoading } = useQuery({
     queryKey: ["groups"],
     queryFn: async () => {
       const { data } = await api.get("/groups")
       return data
     },
   })
+  
+  // Handle both paginated and non-paginated response formats
+  const groups = groupsResponse?.groups || groupsResponse || []
 
   const { data: balances, isLoading: balancesLoading } = useQuery({
     queryKey: ["user-balances"],
@@ -46,6 +55,7 @@ export default function Dashboard() {
     return Math.ceil(groups.length / itemsPerPage)
   }, [groups])
 
+  // Render
   return (
     <>
       <Navbar />
@@ -62,7 +72,7 @@ export default function Dashboard() {
             {isLoading ? (
               <LoadingSpinner size="medium" className="border-red-600" />
             ) : (
-              <div className="text-3xl font-bold text-red-700 dark:text-red-400">${balances?.totalOwing?.toFixed(2) || "0.00"}</div>
+              <div className="text-3xl font-bold text-red-700 dark:text-red-400">₹{balances?.totalOwing?.toFixed(2) || "0.00"}</div>
             )}
           </div>
 
@@ -76,7 +86,7 @@ export default function Dashboard() {
             {isLoading ? (
               <LoadingSpinner size="medium" className="border-green-600" />
             ) : (
-              <div className="text-3xl font-bold text-green-700 dark:text-green-400">${balances?.totalOwed?.toFixed(2) || "0.00"}</div>
+              <div className="text-3xl font-bold text-green-700 dark:text-green-400">₹{balances?.totalOwed?.toFixed(2) || "0.00"}</div>
             )}
           </div>
 
@@ -99,7 +109,7 @@ export default function Dashboard() {
                       : "text-gray-700 dark:text-gray-300"
                 }`}
               >
-                {balances?.netBalance > 0 && "+"}${balances?.netBalance?.toFixed(2) || "0.00"}
+                {balances?.netBalance > 0 && "+"}₹{balances?.netBalance?.toFixed(2) || "0.00"}
               </div>
             )}
           </div>

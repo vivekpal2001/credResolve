@@ -36,9 +36,11 @@ const confirmSettlement = async (req, res) => {
 const getGroupSettlements = async (req, res) => {
   try {
     const { groupId } = req.params
+    const page = parseInt(req.query.page)
+    const limit = parseInt(req.query.limit)
 
-    const settlements = await settlementService.getGroupSettlements(req.userId, groupId)
-    res.json(settlements)
+    const result = await settlementService.getGroupSettlements(req.userId, groupId, page, limit)
+    res.json(result)
   } catch (error) {
     res.status(400).json({ error: error.message })
   }

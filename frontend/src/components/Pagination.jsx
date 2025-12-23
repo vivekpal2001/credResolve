@@ -1,3 +1,15 @@
+// ============================================================================
+// PAGINATION COMPONENT
+// Reusable pagination component with ellipsis support for large page counts
+// ============================================================================
+
+/**
+ * Pagination Component
+ * @param {Object} props - Component props
+ * @param {number} props.currentPage - Current active page
+ * @param {number} props.totalPages - Total number of pages
+ * @param {Function} props.onPageChange - Callback when page changes
+ */
 export default function Pagination({ currentPage, totalPages, onPageChange }) {
   const pages = []
   
@@ -6,7 +18,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
     pages.push(i)
   }
 
-  // Limit visible page numbers
+  // Calculate visible page numbers with ellipsis
   const getVisiblePages = () => {
     if (totalPages <= 7) return pages
     

@@ -3,48 +3,88 @@ const bcrypt = require("bcryptjs")
 
 const prisma = new PrismaClient()
 
-const getUserGroups = async (userId) => {
-  const groups = await prisma.group.findMany({
-    where: {
-      members: {
-        some: {
-          userId: userId,
-        },
-      },
-    },
-    include: {
-      creator: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      members: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              isGuest: true,
-            },
+// ============================================================================
+// PUBLIC API FUNCTIONS
+// ============================================================================
+
+/**
+ * Get all groups for a user
+ * @param {string} userId - User ID
+ * @param {number} page - Page number (optional, default 1)
+ * @param {number} limit - Items per page (optional, default 10)
+ * @returns {Object} Object containing groups array, pagination info, and total count
+ */
+const getUserGroups = async (userId, page = 1, limit = 10) => {
+  const skip = (page - 1) * limit
+
+  const [groups, totalCount] = await Promise.all([
+    prisma.group.findMany({
+      where: {
+        members: {
+          some: {
+            userId: userId,
           },
         },
       },
-      _count: {
-        select: {
-          expenses: true,
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                isGuest: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            expenses: true,
+          },
         },
       },
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
-  })
+      orderBy: {
+        updatedAt: "desc",
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.group.count({
+      where: {
+        members: {
+          some: {
+            userId: userId,
+          },
+        },
+      },
+    }),
+  ])
 
-  return groups
+  return {
+    groups,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+      totalCount,
+      limit,
+    },
+  }
 }
 
+/**
+ * Create a new group
+ * @param {string} creatorUserId - ID of user creating the group
+ * @param {string} name - Group name
+ * @returns {Object} Created group
+ */
 const createGroup = async (creatorUserId, name) => {
   const group = await prisma.group.create({
     data: {
@@ -75,7 +115,18 @@ const createGroup = async (creatorUserId, name) => {
   return group
 }
 
-const getGroupDetails = async (userId, groupId) => {
+/**
+ * Get detailed information about a specific group
+ * @param {string} userId - Requesting user ID
+ * @param {string} groupId - Group ID
+ * @param {number} expensePage - Page number for expenses (optional)
+ * @param {number} expenseLimit - Items per page for expenses (optional)
+ * @param {number} settlementPage - Page number for settlements (optional)
+ * @param {number} settlementLimit - Items per page for settlements (optional)
+ * @returns {Object} Group details with members, paginated expenses, and paginated settlements
+ */
+const getGroupDetails = async (userId, groupId, expensePage, expenseLimit, settlementPage, settlementLimit) => {
+  // Check if user has access to the group
   const group = await prisma.group.findFirst({
     where: {
       id: groupId,
@@ -105,7 +156,19 @@ const getGroupDetails = async (userId, groupId) => {
           },
         },
       },
-      expenses: {
+    },
+  })
+
+  if (!group) {
+    throw new Error("Group not found or access denied")
+  }
+
+  // If pagination params provided, fetch paginated data
+  if (expensePage && expenseLimit) {
+    const expenseSkip = (expensePage - 1) * expenseLimit
+    const [expenses, expenseCount] = await Promise.all([
+      prisma.expense.findMany({
+        where: { groupId },
         include: {
           paidBy: {
             select: {
@@ -129,8 +192,56 @@ const getGroupDetails = async (userId, groupId) => {
         orderBy: {
           createdAt: "desc",
         },
+        skip: expenseSkip,
+        take: expenseLimit,
+      }),
+      prisma.expense.count({
+        where: { groupId },
+      }),
+    ])
+
+    group.expenses = expenses
+    group.expensePagination = {
+      currentPage: expensePage,
+      totalPages: Math.ceil(expenseCount / expenseLimit),
+      totalCount: expenseCount,
+      limit: expenseLimit,
+    }
+  } else {
+    // Fetch all expenses (existing behavior)
+    group.expenses = await prisma.expense.findMany({
+      where: { groupId },
+      include: {
+        paidBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        splits: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
-      settlements: {
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+  }
+
+  if (settlementPage && settlementLimit) {
+    const settlementSkip = (settlementPage - 1) * settlementLimit
+    const [settlements, settlementCount] = await Promise.all([
+      prisma.settlement.findMany({
+        where: { groupId },
         include: {
           fromUser: {
             select: {
@@ -150,9 +261,46 @@ const getGroupDetails = async (userId, groupId) => {
         orderBy: {
           createdAt: "desc",
         },
+        skip: settlementSkip,
+        take: settlementLimit,
+      }),
+      prisma.settlement.count({
+        where: { groupId },
+      }),
+    ])
+
+    group.settlements = settlements
+    group.settlementPagination = {
+      currentPage: settlementPage,
+      totalPages: Math.ceil(settlementCount / settlementLimit),
+      totalCount: settlementCount,
+      limit: settlementLimit,
+    }
+  } else {
+    // Fetch all settlements (existing behavior)
+    group.settlements = await prisma.settlement.findMany({
+      where: { groupId },
+      include: {
+        fromUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        toUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
-    },
-  })
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+  }
 
   if (!group) {
     throw new Error("Group not found or access denied")
