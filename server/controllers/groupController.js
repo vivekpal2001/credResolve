@@ -66,4 +66,33 @@ const addMember = async (req, res) => {
   }
 }
 
-module.exports = { getUserGroups, createGroup, getGroupDetails, addMember }
+const deleteGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params
+    const result = await groupService.deleteGroup(req.userId, groupId)
+    res.json(result)
+  } catch (error) {
+    if (error.message.includes("denied") || error.message.includes("not found")) {
+      return res.status(403).json({ error: error.message })
+    }
+    res.status(500).json({ error: "Failed to delete group" })
+  }
+}
+
+const removeMember = async (req, res) => {
+  try {
+    const { groupId, memberId } = req.params
+    const result = await groupService.removeMember(req.userId, groupId, memberId)
+    res.json(result)
+  } catch (error) {
+    if (error.message.includes("denied") || error.message.includes("not found")) {
+      return res.status(403).json({ error: error.message })
+    }
+    if (error.message.includes("balance") || error.message.includes("last member")) {
+      return res.status(400).json({ error: error.message })
+    }
+    res.status(500).json({ error: "Failed to remove member" })
+  }
+}
+
+module.exports = { getUserGroups, createGroup, getGroupDetails, addMember, deleteGroup, removeMember }

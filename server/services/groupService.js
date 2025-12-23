@@ -215,4 +215,154 @@ const addMember = async (requestingUserId, groupId, memberName, memberEmail) => 
   return newMember
 }
 
-module.exports = { getUserGroups, createGroup, getGroupDetails, addMember }
+const deleteGroup = async (userId, groupId) => {
+  // Check if user is a member of the group
+  const isMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: groupId,
+      userId: userId,
+    },
+  })
+
+  if (!isMember) {
+    throw new Error("Access denied: You are not a member of this group")
+  }
+
+  // Delete the group (cascade will handle expenses, splits, settlements, members)
+  await prisma.group.delete({
+    where: { id: groupId },
+  })
+
+  return { message: "Group deleted successfully" }
+}
+
+const removeMember = async (requestingUserId, groupId, memberIdToRemove) => {
+  // Check if requesting user is a member of the group
+  const isMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: groupId,
+      userId: requestingUserId,
+    },
+  })
+
+  if (!isMember) {
+    throw new Error("Access denied: You are not a member of this group")
+  }
+
+  // Check if member to remove exists in group
+  const memberToRemove = await prisma.groupMember.findFirst({
+    where: {
+      groupId: groupId,
+      userId: memberIdToRemove,
+    },
+  })
+
+  if (!memberToRemove) {
+    throw new Error("Member not found in this group")
+  }
+
+  // Check if this is the last member
+  const memberCount = await prisma.groupMember.count({
+    where: { groupId: groupId },
+  })
+
+  if (memberCount === 1) {
+    throw new Error("Cannot remove the last member. Delete the group instead.")
+  }
+
+  // Check if member has any unsettled balances
+  const expenses = await prisma.expense.findMany({
+    where: { groupId: groupId },
+    include: {
+      splits: true,
+    },
+  })
+
+  const settlements = await prisma.settlement.findMany({
+    where: {
+      groupId: groupId,
+      status: "COMPLETED",
+    },
+  })
+
+  // Calculate if member has outstanding balance
+  let memberBalance = 0
+
+  for (const expense of expenses) {
+    if (expense.paidById === memberIdToRemove) {
+      // They paid, others owe them
+      for (const split of expense.splits) {
+        if (split.userId !== memberIdToRemove) {
+          memberBalance += split.amount
+        }
+      }
+    } else {
+      // Check if they owe for this expense
+      const theirSplit = expense.splits.find((s) => s.userId === memberIdToRemove)
+      if (theirSplit) {
+        memberBalance -= theirSplit.amount
+      }
+    }
+  }
+
+  // Subtract settlements
+  for (const settlement of settlements) {
+    if (settlement.fromUserId === memberIdToRemove) {
+      memberBalance += settlement.amount
+    } else if (settlement.toUserId === memberIdToRemove) {
+      memberBalance -= settlement.amount
+    }
+  }
+
+  if (Math.abs(memberBalance) > 0.01) {
+    throw new Error(
+      `Cannot remove member with unsettled balance of $${Math.abs(memberBalance).toFixed(2)}. Please settle up first.`
+    )
+  }
+
+  // Remove member and all their expense splits
+  await prisma.$transaction(async (tx) => {
+    // Delete their expense splits
+    await tx.expenseSplit.deleteMany({
+      where: {
+        userId: memberIdToRemove,
+        expense: {
+          groupId: groupId,
+        },
+      },
+    })
+
+    // Delete expenses where they were the only one (paid and split for themselves)
+    const expensesToCheck = await tx.expense.findMany({
+      where: {
+        groupId: groupId,
+        paidById: memberIdToRemove,
+      },
+      include: {
+        splits: true,
+      },
+    })
+
+    for (const expense of expensesToCheck) {
+      if (expense.splits.length === 0) {
+        await tx.expense.delete({
+          where: { id: expense.id },
+        })
+      }
+    }
+
+    // Remove member from group
+    await tx.groupMember.delete({
+      where: {
+        userId_groupId: {
+          userId: memberIdToRemove,
+          groupId: groupId,
+        },
+      },
+    })
+  })
+
+  return { message: "Member removed successfully" }
+}
+
+module.exports = { getUserGroups, createGroup, getGroupDetails, addMember, deleteGroup, removeMember }

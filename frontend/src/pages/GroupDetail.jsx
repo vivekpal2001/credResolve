@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import Navbar from "../components/Navbar"
 import AddExpenseModal from "../components/AddExpenseModal"
 import AddMemberModal from "../components/AddMemberModal"
@@ -15,9 +15,11 @@ export default function GroupDetail() {
   const { groupId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false)
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false)
   const [settleModalData, setSettleModalData] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const { data: group, isLoading: groupLoading } = useQuery({
     queryKey: ["group", groupId],
@@ -42,6 +44,48 @@ export default function GroupDetail() {
       return data
     },
   })
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/groups/${groupId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["groups"])
+      navigate("/dashboard")
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || "Failed to delete group")
+    },
+  })
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberId) => {
+      await api.delete(`/groups/${groupId}/members/${memberId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["group", groupId])
+      queryClient.invalidateQueries(["group-balances", groupId])
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || "Failed to remove member")
+    },
+  })
+
+  const handleDeleteGroup = () => {
+    if (window.confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
+      deleteGroupMutation.mutate()
+    }
+  }
+
+  const handleRemoveMember = (memberId, memberName) => {
+    if (memberId === user?.id) {
+      alert("You cannot remove yourself from the group. Use Leave Group instead.")
+      return
+    }
+    if (window.confirm(`Are you sure you want to remove ${memberName} from this group?`)) {
+      removeMemberMutation.mutate(memberId)
+    }
+  }
 
   const isLoading = groupLoading || balancesLoading || settlementsLoading
 
@@ -98,6 +142,13 @@ export default function GroupDetail() {
               </button>
               <button onClick={() => setIsExpenseModalOpen(true)} className="btn btn-primary">
                 + Add Expense
+              </button>
+              <button
+                onClick={handleDeleteGroup}
+                disabled={deleteGroupMutation.isPending}
+                className="btn bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleteGroupMutation.isPending ? "Deleting..." : "Delete Group"}
               </button>
             </div>
           </div>
@@ -224,6 +275,16 @@ export default function GroupDetail() {
                     </div>
                     {member.user.isGuest && (
                       <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">Guest</span>
+                    )}
+                    {member.user.id !== user?.id && group.members.length > 1 && (
+                      <button
+                        onClick={() => handleRemoveMember(member.user.id, member.user.name)}
+                        disabled={removeMemberMutation.isPending}
+                        className="text-red-600 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                        title="Remove member"
+                      >
+                        Remove
+                      </button>
                     )}
                   </div>
                 ))}

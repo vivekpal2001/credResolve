@@ -2,6 +2,87 @@ const { PrismaClient } = require("@prisma/client")
 
 const prisma = new PrismaClient()
 
+// Helper function to calculate net balance for each user
+const calculateNetBalances = (expenses, settlements, members) => {
+  const balances = new Map()
+
+  // Initialize all members with 0
+  members.forEach((member) => {
+    balances.set(member.user.id, 0)
+  })
+
+  // Add expenses
+  for (const expense of expenses) {
+    const payerId = expense.paidById
+
+    // Payer gets positive balance (they paid)
+    balances.set(payerId, balances.get(payerId) + expense.amount)
+
+    // Each split person gets negative balance (they owe)
+    for (const split of expense.splits) {
+      balances.set(split.userId, balances.get(split.userId) - split.amount)
+    }
+  }
+
+  // Subtract completed settlements
+  for (const settlement of settlements) {
+    // Person who paid gets positive (reduced their debt or increased credit)
+    balances.set(settlement.fromUserId, balances.get(settlement.fromUserId) + settlement.amount)
+    // Person who received gets negative (reduced their credit or increased debt)
+    balances.set(settlement.toUserId, balances.get(settlement.toUserId) - settlement.amount)
+  }
+
+  return balances
+}
+
+// Simple Net Balance Method for debt simplification
+const simplifyDebts = (netBalances, userMap) => {
+  // Separate creditors (positive balance) and debtors (negative balance)
+  const creditors = []
+  const debtors = []
+
+  for (const [userId, balance] of netBalances.entries()) {
+    if (balance > 0.01) {
+      creditors.push({ userId, amount: balance })
+    } else if (balance < -0.01) {
+      debtors.push({ userId, amount: -balance }) // Store as positive
+    }
+  }
+
+  // Sort both arrays in descending order (largest first)
+  creditors.sort((a, b) => b.amount - a.amount)
+  debtors.sort((a, b) => b.amount - a.amount)
+
+  // Greedy matching algorithm
+  const transactions = []
+  let i = 0 // creditor index
+  let j = 0 // debtor index
+
+  while (i < creditors.length && j < debtors.length) {
+    const creditor = creditors[i]
+    const debtor = debtors[j]
+
+    // Take minimum of what creditor is owed and what debtor owes
+    const amount = Math.min(creditor.amount, debtor.amount)
+
+    transactions.push({
+      from: userMap.get(debtor.userId),
+      to: userMap.get(creditor.userId),
+      amount: Math.round(amount * 100) / 100,
+    })
+
+    // Update remaining amounts
+    creditor.amount -= amount
+    debtor.amount -= amount
+
+    // Move to next if settled
+    if (creditor.amount < 0.01) i++
+    if (debtor.amount < 0.01) j++
+  }
+
+  return transactions
+}
+
 const getUserBalances = async (userId) => {
   // Get all groups the user is part of
   const groups = await prisma.group.findMany({
@@ -38,73 +119,45 @@ const getUserBalances = async (userId) => {
     },
   })
 
-  const userDebts = new Map() // userId -> amount (positive = they owe you, negative = you owe them)
+  // Combine all expenses and settlements across groups
+  const allExpenses = []
+  const allSettlements = []
+  const allMembers = []
+  const userIds = new Set()
 
   for (const group of groups) {
-    // Calculate debts from expenses
-    for (const expense of group.expenses) {
-      const payerId = expense.paidById
-
-      for (const split of expense.splits) {
-        if (split.userId === payerId) continue // Skip if payer is also in the split
-
-        if (payerId === userId) {
-          // I paid, they owe me
-          const currentDebt = userDebts.get(split.userId) || 0
-          userDebts.set(split.userId, currentDebt + split.amount)
-        } else if (split.userId === userId) {
-          // They paid, I owe them
-          const currentDebt = userDebts.get(payerId) || 0
-          userDebts.set(payerId, currentDebt - split.amount)
-        }
+    allExpenses.push(...group.expenses)
+    allSettlements.push(...group.settlements)
+    group.members.forEach((member) => {
+      if (!userIds.has(member.user.id)) {
+        allMembers.push(member)
+        userIds.add(member.user.id)
       }
-    }
-
-    // Subtract completed settlements
-    for (const settlement of group.settlements) {
-      if (settlement.fromUserId === userId) {
-        // I paid someone - I owe them less (negative becomes more negative or positive becomes less positive)
-        const currentDebt = userDebts.get(settlement.toUserId) || 0
-        userDebts.set(settlement.toUserId, currentDebt - settlement.amount)
-      } else if (settlement.toUserId === userId) {
-        // Someone paid me - they owe me less (positive becomes less positive)
-        const currentDebt = userDebts.get(settlement.fromUserId) || 0
-        userDebts.set(settlement.fromUserId, currentDebt - settlement.amount)
-      }
-    }
+    })
   }
 
-  // Build response
+  // Calculate net balances
+  const netBalances = calculateNetBalances(allExpenses, allSettlements, allMembers)
+
+  // Create user map
+  const userMap = new Map(allMembers.map((m) => [m.user.id, m.user]))
+
+  // Simplify debts using net balance method
+  const simplifiedDebts = simplifyDebts(netBalances, userMap)
+
+  // Build response for current user
   const youOwe = []
   const youAreOwed = []
   let totalOwing = 0
   let totalOwed = 0
 
-  // Get user info
-  const userIds = Array.from(userDebts.keys())
-  const users = await prisma.user.findMany({
-    where: { id: { in: userIds } },
-    select: { id: true, name: true, email: true, isGuest: true },
-  })
-
-  const userMap = new Map(users.map((u) => [u.id, u]))
-
-  for (const [otherUserId, amount] of userDebts.entries()) {
-    if (Math.abs(amount) < 0.01) continue // Skip negligible amounts
-
-    const user = userMap.get(otherUserId)
-    if (!user) continue
-
-    const roundedAmount = Math.round(Math.abs(amount) * 100) / 100
-
-    if (amount < 0) {
-      // I owe them
-      youOwe.push({ user, amount: roundedAmount })
-      totalOwing += roundedAmount
-    } else {
-      // They owe me
-      youAreOwed.push({ user, amount: roundedAmount })
-      totalOwed += roundedAmount
+  for (const debt of simplifiedDebts) {
+    if (debt.from.id === userId) {
+      youOwe.push({ user: debt.to, amount: debt.amount })
+      totalOwing += debt.amount
+    } else if (debt.to.id === userId) {
+      youAreOwed.push({ user: debt.from, amount: debt.amount })
+      totalOwed += debt.amount
     }
   }
 
@@ -158,58 +211,14 @@ const getGroupBalances = async (userId, groupId) => {
     },
   })
 
-  // Calculate all pairwise debts
-  const debts = new Map() // "fromId:toId" -> amount
+  // Calculate net balances using the new method
+  const netBalances = calculateNetBalances(group.expenses, group.settlements, group.members)
 
-  for (const expense of group.expenses) {
-    const payerId = expense.paidById
+  // Create user map
+  const userMap = new Map(group.members.map((m) => [m.user.id, m.user]))
 
-    for (const split of expense.splits) {
-      if (split.userId === payerId) continue
-
-      const key = `${split.userId}:${payerId}`
-      debts.set(key, (debts.get(key) || 0) + split.amount)
-    }
-  }
-
-  // Subtract completed settlements
-  for (const settlement of group.settlements) {
-    const key = `${settlement.fromUserId}:${settlement.toUserId}`
-    debts.set(key, (debts.get(key) || 0) - settlement.amount)
-  }
-
-  // Simplify debts (net out bidirectional debts)
-  const simplifiedDebts = []
-  const processed = new Set()
-
-  for (const [key, amount] of debts.entries()) {
-    if (processed.has(key)) continue
-
-    const [fromId, toId] = key.split(":")
-    const reverseKey = `${toId}:${fromId}`
-    const reverseAmount = debts.get(reverseKey) || 0
-
-    processed.add(key)
-    processed.add(reverseKey)
-
-    const netAmount = amount - reverseAmount
-
-    if (Math.abs(netAmount) < 0.01) continue
-
-    if (netAmount > 0) {
-      simplifiedDebts.push({
-        from: group.members.find((m) => m.user.id === fromId)?.user,
-        to: group.members.find((m) => m.user.id === toId)?.user,
-        amount: Math.round(netAmount * 100) / 100,
-      })
-    } else {
-      simplifiedDebts.push({
-        from: group.members.find((m) => m.user.id === toId)?.user,
-        to: group.members.find((m) => m.user.id === fromId)?.user,
-        amount: Math.round(Math.abs(netAmount) * 100) / 100,
-      })
-    }
-  }
+  // Simplify debts using net balance method
+  const simplifiedDebts = simplifyDebts(netBalances, userMap)
 
   // Calculate user-specific balances
   const youOwe = []
