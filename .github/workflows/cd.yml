@@ -1,13 +1,17 @@
 name: CD - Deploy to EC2
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI - Test & Build"]
+    types:
+      - completed
     branches: [ main ]
 
 jobs:
   deploy:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
     - name: Checkout code
