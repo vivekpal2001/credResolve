@@ -39,15 +39,15 @@ export default function CreateGroupModal({ isOpen, onClose }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Group</h2>
+    <div className="modal-overlay">
+      <div className="modal-content p-6 shadow-xl">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Create New Group</h2>
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded mb-4 text-sm">{error}</div>
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-3 py-2 rounded mb-4 text-sm">{error}</div>
           )}
           <div className="mb-4">
-            <label htmlFor="groupName" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="groupName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Group Name
             </label>
             <input
@@ -62,10 +62,10 @@ export default function CreateGroupModal({ isOpen, onClose }) {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Add Members
             </label>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               You can add members after creating the group using the "Add Member" button.
             </p>
           </div>

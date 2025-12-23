@@ -13,6 +13,12 @@ const getUserGroups = async (userId) => {
       },
     },
     include: {
+      creator: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       members: {
         include: {
           user: {
@@ -43,6 +49,7 @@ const createGroup = async (creatorUserId, name) => {
   const group = await prisma.group.create({
     data: {
       name,
+      creatorId: creatorUserId,
       members: {
         create: {
           userId: creatorUserId,
@@ -79,6 +86,13 @@ const getGroupDetails = async (userId, groupId) => {
       },
     },
     include: {
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
       members: {
         include: {
           user: {
@@ -216,16 +230,28 @@ const addMember = async (requestingUserId, groupId, memberName, memberEmail) => 
 }
 
 const deleteGroup = async (userId, groupId) => {
-  // Check if user is a member of the group
-  const isMember = await prisma.groupMember.findFirst({
-    where: {
-      groupId: groupId,
-      userId: userId,
+  // Get group with creator info
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: { 
+      creatorId: true,
+      members: true
     },
   })
 
+  if (!group) {
+    throw new Error("Group not found")
+  }
+
+  // Check if user is a member
+  const isMember = group.members.some(m => m.userId === userId)
   if (!isMember) {
     throw new Error("Access denied: You are not a member of this group")
+  }
+
+  // Only creator can delete the group
+  if (group.creatorId !== userId) {
+    throw new Error("Only the group creator can delete this group")
   }
 
   // Delete the group (cascade will handle expenses, splits, settlements, members)
@@ -237,37 +263,53 @@ const deleteGroup = async (userId, groupId) => {
 }
 
 const removeMember = async (requestingUserId, groupId, memberIdToRemove) => {
-  // Check if requesting user is a member of the group
-  const isMember = await prisma.groupMember.findFirst({
-    where: {
-      groupId: groupId,
-      userId: requestingUserId,
+  // Get group with creator info
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: { 
+      creatorId: true,
+      members: true
     },
   })
 
-  if (!isMember) {
+  if (!group) {
+    throw new Error("Group not found")
+  }
+
+  // Check if requesting user is a member
+  const isRequesterMember = group.members.some(m => m.userId === requestingUserId)
+  if (!isRequesterMember) {
     throw new Error("Access denied: You are not a member of this group")
   }
 
   // Check if member to remove exists in group
-  const memberToRemove = await prisma.groupMember.findFirst({
-    where: {
-      groupId: groupId,
-      userId: memberIdToRemove,
-    },
-  })
-
+  const memberToRemove = group.members.find(m => m.userId === memberIdToRemove)
   if (!memberToRemove) {
     throw new Error("Member not found in this group")
   }
 
   // Check if this is the last member
-  const memberCount = await prisma.groupMember.count({
-    where: { groupId: groupId },
-  })
-
-  if (memberCount === 1) {
+  if (group.members.length === 1) {
     throw new Error("Cannot remove the last member. Delete the group instead.")
+  }
+
+  // Case 1: User is removing themselves (leaving the group)
+  if (requestingUserId === memberIdToRemove) {
+    // If they're the creator, they need to transfer ownership or delete group
+    if (group.creatorId === requestingUserId) {
+      throw new Error(
+        "As the group creator, please delete the group or have another member create a new group before leaving."
+      )
+    }
+    // Regular member can leave if no outstanding balance
+    // Continue to balance check below
+  } 
+  // Case 2: User is removing someone else
+  else {
+    // Only creator can remove other members
+    if (group.creatorId !== requestingUserId) {
+      throw new Error("Only the group creator can remove other members")
+    }
   }
 
   // Check if member has any unsettled balances

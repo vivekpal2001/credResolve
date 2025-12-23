@@ -7,5 +7,6 @@ router.use(authMiddleware)
 
 router.post("/", expenseController.createExpense)
 router.get("/group/:groupId", expenseController.getGroupExpenses)
+router.delete("/:expenseId", expenseController.deleteExpense)
 
 module.exports = router

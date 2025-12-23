@@ -16,6 +16,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  createdGroups   Group[]         @relation("GroupCreator")
   groupMembers    GroupMember[]
   expensesPaid    Expense[]       @relation("PaidByUser")
   expenseSplits   ExpenseSplit[]
@@ -26,9 +27,11 @@ model User {
 model Group {
   id        String   @id @default(uuid())
   name      String
+  creatorId String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  creator     User          @relation("GroupCreator", fields: [creatorId], references: [id])
   members     GroupMember[]
   expenses    Expense[]
   settlements Settlement[]

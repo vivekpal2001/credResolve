@@ -105,17 +105,17 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-2xl w-full p-6 my-8 shadow-xl">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Add Expense</h2>
+    <div className="modal-overlay">
+      <div className="modal-content p-6 my-8 shadow-xl">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Add Expense</h2>
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded mb-4 text-sm">{error}</div>
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-3 py-2 rounded mb-4 text-sm">{error}</div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
               <input
                 type="text"
                 value={description}
@@ -127,7 +127,7 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Amount ($)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount ($)</label>
               <input
                 type="number"
                 step="0.01"
@@ -140,7 +140,7 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Split Type</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Split Type</label>
               <div className="flex gap-2">
                 {["EQUAL", "EXACT", "PERCENTAGE"].map((type) => (
                   <button
@@ -151,7 +151,7 @@ export default function AddExpenseModal({ isOpen, onClose, groupId, members }) {
                     className={`flex-1 py-2 px-4 rounded-lg border transition-colors ${
                       splitType === type
                         ? "bg-primary-600 text-white border-primary-600"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                     }`}
                   >
                     {type.charAt(0) + type.slice(1).toLowerCase()}

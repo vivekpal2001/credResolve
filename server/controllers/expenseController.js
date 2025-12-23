@@ -39,4 +39,17 @@ const getGroupExpenses = async (req, res) => {
   }
 }
 
-module.exports = { createExpense, getGroupExpenses }
+const deleteExpense = async (req, res) => {
+  try {
+    const { expenseId } = req.params
+    const result = await expenseService.deleteExpense(req.userId, expenseId)
+    res.json(result)
+  } catch (error) {
+    if (error.message.includes("not found") || error.message.includes("only") || error.message.includes("no longer")) {
+      return res.status(403).json({ error: error.message })
+    }
+    res.status(500).json({ error: "Failed to delete expense" })
+  }
+}
+
+module.exports = { createExpense, getGroupExpenses, deleteExpense }

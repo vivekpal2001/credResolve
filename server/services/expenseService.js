@@ -187,4 +187,43 @@ const getGroupExpenses = async (userId, groupId) => {
   return expenses
 }
 
-module.exports = { createExpense, getGroupExpenses }
+const deleteExpense = async (userId, expenseId) => {
+  // Get expense with group info
+  const expense = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    include: {
+      group: {
+        include: {
+          members: true,
+        },
+      },
+    },
+  })
+
+  if (!expense) {
+    throw new Error("Expense not found")
+  }
+
+  // Check if user is the one who paid (creator of expense)
+  if (expense.paidById !== userId) {
+    throw new Error("Only the person who created this expense can delete it")
+  }
+
+  // Check if user is still a member of the group
+  const isMember = expense.group.members.some((m) => m.userId === userId)
+  if (!isMember) {
+    throw new Error("You are no longer a member of this group")
+  }
+
+  // Delete expense (cascade will delete splits automatically)
+  await prisma.expense.delete({
+    where: { id: expenseId },
+  })
+
+  return {
+    message: "Expense deleted successfully",
+    groupId: expense.groupId,
+  }
+}
+
+module.exports = { createExpense, getGroupExpenses, deleteExpense }

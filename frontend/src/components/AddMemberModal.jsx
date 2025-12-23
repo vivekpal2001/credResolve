@@ -40,19 +40,19 @@ export default function AddMemberModal({ isOpen, onClose, groupId }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Add Member</h2>
-        <p className="text-sm text-gray-600 mb-4">
+    <div className="modal-overlay">
+      <div className="modal-content p-6 shadow-xl">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Add Member</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Add a member by name and email. If they're not registered, they'll be added as a guest.
         </p>
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded mb-4 text-sm">{error}</div>
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-3 py-2 rounded mb-4 text-sm">{error}</div>
           )}
           <div className="space-y-4 mb-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Name
               </label>
               <input
@@ -66,7 +66,7 @@ export default function AddMemberModal({ isOpen, onClose, groupId }) {
               />
             </div>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email
               </label>
               <input
